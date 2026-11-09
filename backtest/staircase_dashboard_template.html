@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staircase Breakout</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5f6b7a; --line: #e2e6eb;
+  --accent: #2f6fde; --good: #1f8a4c; --warn: #b7791f; --bad: #c0392b; --chip: #eef1f5;
+  --e8: #2f6fde; --e21: #c2600c; --e50: #7b3fb5; --s1: #2f6fde; --s2: #c2600c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --panel: #171b21; --text: #e6e9ee; --muted: #9aa5b3; --line: #2a313a;
+    --accent: #6b9cff; --good: #4cc27f; --warn: #e0a84a; --bad: #ef6f61; --chip: #222831;
+    --e8: #4f8cf0; --e21: #c9781f; --e50: #a56fdc; --s1: #4f8cf0; --s2: #c9781f;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --panel: #171b21; --text: #e6e9ee; --muted: #9aa5b3; --line: #2a313a;
+  --accent: #6b9cff; --good: #4cc27f; --warn: #e0a84a; --bad: #ef6f61; --chip: #222831;
+  --e8: #4f8cf0; --e21: #c9781f; --e50: #a56fdc; --s1: #4f8cf0; --s2: #c9781f;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+h1 { font-size: 22px; margin: 0 0 2px; }
+h2 { font-size: 16px; margin: 26px 0 10px; }
+a { color: var(--accent); }
+.sub { color: var(--muted); margin: 0 0 16px; overflow-wrap: anywhere; }
+.banner { border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--panel)); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+.banner.fail { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 9%, var(--panel)); }
+.banner.pass { border-color: var(--good); background: color-mix(in srgb, var(--good) 9%, var(--panel)); }
+.banner b.h { display: block; font-size: 15px; margin-bottom: 2px; }
+.side { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 14px; }
+.side .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.side .seg button { border: 0; border-radius: 0; background: var(--panel); padding: 6px 14px; font-size: 14px; color: var(--muted); }
+.side .seg button[aria-pressed=true] { background: var(--accent); color: var(--panel); font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.tile, .card, .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.tile .l, .card .m { color: var(--muted); font-size: 12.5px; }
+.tile .v, .card .big { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 20px 0 4px; border-bottom: 1px solid var(--line); }
+.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; font-size: 14px; color: var(--muted); }
+.tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.pane[hidden] { display: none; }
+.steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 4px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.steps li::before { content: counter(s); font-weight: 700; color: var(--accent); font-size: 18px; line-height: 1.2; }
+.steps .tt { font-weight: 650; }
+.src { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 99px; background: var(--chip); color: var(--muted); margin-left: 6px; font-weight: 400; white-space: nowrap; }
+.src.mine { color: var(--warn); }
+.calc { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.calc label { display: grid; gap: 3px; color: var(--muted); font-size: 12.5px; }
+.calc input { width: 100%; }
+.calcout { margin-top: 10px; font-variant-numeric: tabular-nums; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.controls label { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+.controls input[type=number] { width: 90px; }
+.controls input[type=search] { width: 120px; }
+input, select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.card .t { font-weight: 650; display: flex; justify-content: space-between; gap: 8px; }
+.grp { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.grp.on { color: var(--good); } .grp.off { color: var(--bad); }
+.tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; }
+table.wide { min-width: 1000px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+#rows td, #rows th { white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+tr.row { cursor: pointer; }
+tr.row:hover { background: var(--chip); }
+.score { display: inline-block; min-width: 34px; text-align: center; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
+.s-hi { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.s-mid { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+tr.detail td { white-space: normal !important; background: var(--bg); }
+.detail-wrap { padding: 6px 2px; position: sticky; left: 10px; width: min(calc(100vw - 70px), 1126px); }
+.detail-grid { display: grid; grid-template-columns: 1fr 300px; gap: 18px; margin-top: 14px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 760px) {
+  .detail-grid, .two { grid-template-columns: 1fr; }
+  .detail-wrap { width: calc(100vw - 54px); }
+}
+.detail ol { margin: 0; padding-left: 20px; }
+.detail li { margin-bottom: 6px; }
+.detail li.no { color: var(--bad); font-weight: 600; }
+.parts { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--panel); align-self: start; }
+.parts div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.yes { color: var(--good); font-weight: 700; } .no-mark { color: var(--bad); font-weight: 700; }
+.muted { color: var(--muted); }
+.legend { color: var(--muted); font-size: 13px; margin-top: 10px; }
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 540px), 1fr)); gap: 10px; }
+.pin { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.pin-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.pin-head .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button { background: var(--chip); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.chart { min-width: 0; }
+.chart svg, .plot svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.readout { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; min-height: 19px; }
+.keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.keys span { display: inline-flex; align-items: center; gap: 5px; }
+.keys i { display: inline-block; width: 16px; height: 2px; }
+.keys i.up { width: 8px; height: 12px; border: 1.5px solid var(--good); background: var(--panel); }
+.keys i.down { width: 8px; height: 12px; border: 1.5px solid var(--bad); background: var(--bad); }
+.keys i.base { width: 14px; height: 12px; background: var(--chip); border: 1px solid var(--line); }
+.scroll { max-height: 420px; overflow: auto; }
+.scroll th { position: sticky; top: 0; background: var(--panel); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Staircase Breakout</h1>
+  <p class="sub" id="sub"></p>
+  <div class="side">
+    <div class="seg" role="group" aria-label="Side">
+      <button data-side="long">Long setups</button>
+      <button data-side="short">Short setups</button>
+    </div>
+    <span class="muted" id="sidestate"></span>
+  </div>
+  <div class="banner" id="verdict"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="playbook">Playbook</button>
+    <button role="tab" data-tab="watch">Watchlist</button>
+    <button role="tab" data-tab="test">Backtest</button>
+    <button role="tab" data-tab="claims">Video claims</button>
+  </div>
+
+  <section class="pane" id="playbook">
+    <h2>The strategy, step by step</h2>
+    <ol class="steps" id="pb-short" hidden>
+      <li><div><div class="tt">Check the market <span class="src">video 1:13</span><span class="src mine">exact test is mine</span></div>
+        Chart QQQ and SPY with the 8, 21 and 50 EMAs. Look for shorts only when both close below all three, until the market reclaims them.</div></li>
+      <li><div><div class="tt">Run the short screener <span class="src">video 1:36</span></div>
+        Price over $3, market cap over $300M, EMA8 above price by 0% to 3%, EMA21 above price, 10-day average volume over 500K, ADR at least 3%.</div></li>
+      <li><div><div class="tt">Find the staircase down <span class="src">video 2:02</span><span class="src mine">numbers are mine</span></div>
+        A prior leg down of at least 15% or 5× ADR, then a tight base of 5 to 25 days with a range under 3.5× ADR, staying below the averages.</div></li>
+      <li><div><div class="tt">Check the volume <span class="src">video 2:12</span><span class="src mine">exact test is mine</span></div>
+        Volume should be high on the sell side. The test requires heavier average volume on down days than up days.</div></li>
+      <li><div><div class="tt">Mark the trigger <span class="src">video 2:25</span></div>
+        The low the stock has respected multiple times.</div></li>
+      <li><div><div class="tt">Short the break <span class="src">video 2:53</span><span class="src mine">1.5× is mine</span></div>
+        On the 5 minute chart, short the moment it breaks that low with volume. The test uses 1.5× normal pace.</div></li>
+      <li><div><div class="tt">Stop at the high of the day <span class="src">video 3:03</span></div>
+        A move through that high usually means the breakdown failed and a reversal is starting.</div></li>
+      <li><div><div class="tt">Trim into weakness <span class="src">video 3:22</span><span class="src mine">sizes and days are mine</span></div>
+        After one or two down days, take some profit without covering it all. The test covers a third on the 2nd down day and a third on the 4th.</div></li>
+      <li><div><div class="tt">Cover the rest on strength <span class="src">video 3:48</span></div>
+        Stay short while it rejects the 8 and 21 EMAs. Cover what's left after a close above both.</div></li>
+    </ol>
+    <ol class="steps" id="pb-long">
+      <li><div><div class="tt">Check the market <span class="src">video 0:30</span><span class="src mine">exact test is mine</span></div>
+        Chart QQQ and SPY with the 8, 21 and 50 EMAs. Take longs only when both close above all three.</div></li>
+      <li><div><div class="tt">Run the screener <span class="src">video 1:30</span></div>
+        Price over $3, market cap over $300M, EMA21 and EMA50 below price, 10-day average volume over 500K, ADR at least 2%. Sort by volume.</div></li>
+      <li><div><div class="tt">Find the staircase <span class="src">video 2:00</span><span class="src mine">numbers are mine</span></div>
+        A prior move of at least 15% or 5× ADR, then a sideways base of 5 to 25 days with a range under 3.5× ADR, holding above EMA50.</div></li>
+      <li><div><div class="tt">Mark the trigger <span class="src">video 2:20</span></div>
+        The level that has rejected the stock more than once. Don't buy while it's still inside the base.</div></li>
+      <li><div><div class="tt">Enter on the break <span class="src">video 3:10</span><span class="src mine">1.5× is mine</span></div>
+        On the 5 minute chart, buy as it clears the level with high volume. The test uses 1.5× normal pace.</div></li>
+      <li><div><div class="tt">Stop at the low of the day <span class="src">video 3:30</span></div>
+        If it stops you out, it can be re-entered if it gets back above the level, or you move on.</div></li>
+      <li><div><div class="tt">Sell in stages <span class="src">video 3:40</span><span class="src mine">every level is mine</span></div>
+        The video only says not to sell it all on one day. The test sells a quarter at +3R then moves the stop to breakeven, a quarter on a close below EMA8, a quarter below EMA21, and the rest below EMA50.</div></li>
+    </ol>
+    <h2>Position size</h2>
+    <div class="box">
+      <div class="calc">
+        <label>Account $ <input type="number" id="c-account" min="1" step="1000"></label>
+        <label>Risk per trade $ <input type="number" id="c-risk" min="1" step="10"></label>
+        <label>Entry <input type="number" id="c-entry" min="0" step="0.01" placeholder="e.g. 42.50"></label>
+        <label><span id="c-stop-label">Low of day (stop)</span> <input type="number" id="c-stop" min="0" step="0.01" placeholder="e.g. 41.20"></label>
+      </div>
+      <div class="calcout" id="c-out"></div>
+    </div>
+    <p class="legend" id="pb-short-note" hidden><b>Shorting carries risks a long doesn't.</b> A loss has no ceiling, stocks can gap far past a stop, and shares can be recalled or unavailable. Shorting needs a margin account, and borrow fees on small falling stocks can be far above the 3% a year the test charges. Not modelled: short-sale restrictions, squeezes beyond daily gaps, dividends owed, earnings, and same-day re-entry. Full rules are in <code>Staircase_Short_Strategy.md</code>, and the transcript is in <code>transcripts/staircase_short_video.txt</code>.</p>
+    <p class="legend" id="pb-long-note">Not modelled, because the video doesn't define them: shorts in a down market, earnings, same-day re-entry, and any judgement on which charts look best. The author also offers a PDF guide, which wasn't read, and it may add exit rules. Full rules are in <code>Staircase_Strategy.md</code>.</p>
+  </section>
+
+  <section class="pane" id="watch" hidden>
+    <div class="controls" style="margin-top:14px">
+      <label>Min rules met <input type="range" id="min" min="4" value="5"> <span id="minv">5</span></label>
+      <label>Status <select id="status"><option value="">All</option><option>Ready</option><option>One rule short</option><option>Possibly pinned</option></select></label>
+      <label>Find <input type="search" id="find" placeholder="Ticker or name"></label>
+    </div>
+    <h2>Market and scan <span class="muted" style="font-weight:400" id="asof"></span></h2>
+    <div class="cards" id="cards"></div>
+    <p class="legend" id="filternote"></p>
+    <h2>My charts <span class="muted" style="font-weight:400" id="pincount"></span></h2>
+    <div class="board" id="board"></div>
+    <h2>Setups <span class="muted" style="font-weight:400">— <span id="shown"></span>; click a row for its chart and plan</span></h2>
+    <div class="tablewrap">
+      <table class="wide">
+        <thead><tr>
+          <th>Chart</th><th>Rules</th><th>Ticker</th><th>Name</th><th>Status</th><th class="num">Close</th><th class="num">Trigger</th><th class="num">To trigger</th>
+          <th class="num" id="th-base">Base low</th><th class="num">Base days</th><th class="num">ADR</th><th class="num">RS rank</th>
+          <th class="num">Market cap</th><th class="num">Avg volume</th><th class="num">Est. shares</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="legend" id="watchnote"></p>
+  </section>
+
+  <section class="pane" id="test" hidden>
+    <div id="testbody"></div>
+  </section>
+
+  <section class="pane" id="claims" hidden>
+    <h2>What the video claims, and what's behind it</h2>
+    <div class="tablewrap"><table><thead><tr><th>Claim</th><th>What the video shows</th><th>What the test found</th></tr></thead><tbody id="claimrows"></tbody></table></div>
+    <p class="legend" id="claimnote"></p>
+  </section>
+</main>
+<script>
+const DATA = __DATA__;
+const $ = id => document.getElementById(id);
+const fmt = x => x.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const compact = x => x >= 1e12 ? (x / 1e12).toFixed(1) + 'T' : x >= 1e9 ? (x / 1e9).toFixed(1) + 'B' : x >= 1e6 ? (x / 1e6).toFixed(1) + 'M' : x >= 1e3 ? (x / 1e3).toFixed(0) + 'K' : String(x);
+const sR = (x, d = 2) => x === null || x === undefined ? '–' : (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(d) + 'R';
+const pct = (x, d = 1) => (x >= 0 ? '+' : '−') + Math.abs(x * 100).toFixed(d) + '%';
+const range = o => o.lo === null ? 'too few months' : `${sR(o.lo)} to ${sR(o.hi)}`;
+const BY_TICKER = Object.fromEntries([...DATA.rows, ...DATA.short.rows].map(r => [r.ticker, r]));
+const EMAS = [['e8', 'EMA8'], ['e21', 'EMA21'], ['e50', 'EMA50']];
+const E = DATA.earlier;
+let SIDE = 'long', P = DATA.primary, REP = DATA.replication, ROWS = DATA.rows;
+let open = null;
+
+function load(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v; } catch { return fallback; } }
+function save(key, v) { try { localStorage.setItem(key, v); } catch {} }
+let pins = [];
+try { pins = JSON.parse(load('staircase_pins', '[]')); } catch {}
+
+function setSide(next) {
+  SIDE = next === 'short' ? 'short' : 'long';
+  const short = SIDE === 'short', S = DATA.short;
+  save('staircase_side', SIDE);
+  P = short ? S.primary : DATA.primary; REP = short ? S.replication : DATA.replication; ROWS = short ? S.rows : DATA.rows;
+  if (short && REP && (!P || !P.enough_months) && REP.enough_months) [P, REP] = [REP, P];  // lead with the test that can carry a verdict
+  open = null;
+  document.querySelectorAll('[data-side]').forEach(b => b.setAttribute('aria-pressed', b.dataset.side === SIDE));
+  $('title').textContent = short ? 'Staircase Breakdown' : 'Staircase Breakout';
+  document.title = $('title').textContent;
+  $('sub').textContent = `Generated ${DATA.generated}, from the ${DATA.as_of} close. Source: ${short ? 'your supplied video, "My full strategy guide as 7 figure trader"' : '@SRxTrades, "The strategy that made me 7 figures in 1 month"'}. ${DATA.cloud ? 'Refreshed automatically before the open and after the close.' : 'Regenerate each morning: .venv\\Scripts\\python -m backtest.staircase_dashboard'}`;
+  $('sidestate').textContent = S.red ? 'The market filter currently allows shorts only.' : DATA.green ? 'The market filter currently allows longs only.' : 'The market filter currently allows neither side.';
+  $('pb-long').hidden = short; $('pb-long-note').hidden = short; $('pb-short').hidden = !short; $('pb-short-note').hidden = !short;
+  $('c-stop-label').textContent = short ? 'High of day (stop)' : 'Low of day (stop)';
+  $('th-base').textContent = short ? 'Base high' : 'Base low';
+  const total = ROWS.length ? ROWS[0].total : short ? 6 : 5;
+  $('min').min = total - 1; $('min').max = total; $('min').value = total; $('minv').textContent = total;
+  $('filternote').textContent = short ? 'Red means SPY and QQQ both closed below their 8, 21 and 50 EMAs. New shorts are only taken when red.' : 'Green means SPY and QQQ both closed above their 8, 21 and 50 EMAs. New trades are only taken when green.';
+  $('watchnote').textContent = `Setups pass the video's screener, market cap over $300M, and at least ${total - 1} of ${total} base rules. Market cap is today's figure; "–" means Yahoo didn't return one. RS rank is 3-month return against the whole US market, shown for information; the video doesn't use it. ${short ? '' : 'Possibly pinned means a jump of 25% or more in one day within the last 30 sessions, then almost no movement, which usually points to a takeover. '}Est. shares assumes the median stop in the test${P ? `, ${(P.median_risk * 100).toFixed(1)}% of price` : ''}, capped at ${Math.round(DATA.max_position * 100)}% of the account; use your risk settings in the Playbook tab. Levels come from the last close; recheck at the open.`;
+  $('claimnote').innerHTML = short ? 'The video closes by asking viewers to save it and follow. That doesn\'t make the method wrong, but the examples are hand-picked, so they can\'t tell you how often it works.'
+    : 'The video ends by asking viewers to comment "strategy" to receive a PDF, and the author\'s profile promotes a trading group. Neither makes the method wrong, but the examples are hand-picked winners, so they can\'t tell you how often it works. <a href="https://x.com/SRxTrades/status/2060843695918682320" target="_blank" rel="noopener">Watch the video</a>.';
+  verdict(); calc(); cards(); testBody(); claims(); board(); rows();
+  showTab(load('staircase_tab', 'playbook'));
+}
+
+// ---------------------------------------------------------------- verdict
+
+function shortVerdict() {
+  const S = DATA.short, v = $('verdict'), tests = [S.primary, S.replication].filter(Boolean), judged = tests.filter(t => t.enough_months);
+  const thin = tests.filter(t => !t.enough_months);
+  const proven = judged.length > 0 && judged.every(t => t.passed);
+  v.classList.add(proven ? 'pass' : 'fail');
+  const line = (name, t) => t ? `<b>${name}:</b> ${sR(t.signal.mean)} per trade, range ${range(t.signal)}, against ${sR(t.control.mean)} for random shorts, over ${t.months} months with trades${t.enough_months ? '' : ', too thin to judge'}.` : `<b>${name}:</b> no trades.`;
+  v.innerHTML = `<b class="h">${proven ? 'Passed, on a limited sample' : judged.length ? 'No proven edge' : 'Too little data for a verdict'}</b>
+    ${line('Outside the S&amp;P 1500, 1h entries', S.primary)} ${line('S&amp;P 1500, 10 years, daily close', S.replication)}
+    The market filter is rarely on, so these results rest on a few bear-market episodes. Delisted stocks are missing, which works against shorts, while uncharged dividends and cheap assumed borrow work for them.
+    ${proven ? 'Treat it as a reason to paper trade, not to size up.' : 'Use this page for paper trading, not as a reason to risk money.'}`;
+  const main = P || S.replication;
+  if (!main) { $('tiles').innerHTML = ''; return; }
+  const p = main.portfolio;
+  const tile = (l, val, note) => `<div class="tile"><div class="l">${l}</div><div class="v">${val}</div><div class="l">${note}</div></div>`;
+  $('tiles').innerHTML =
+    tile('Average per trade', sR(main.signal.mean), `${main.signal.n.toLocaleString()} trades after costs, ${main === S.primary ? '1h' : '10-year daily'} test`) +
+    tile('Random shorts', sR(main.control.mean), `gap ${sR(main.diff.mean)}, range ${range(main.diff)}`) +
+    tile('Win rate', main.signal.win === null ? '–' : Math.round(main.signal.win * 100) + '%', `median trade ${sR(main.median_r)}`) +
+    tile('Portfolio per year', pct(p.strategy.cagr), `SPY ${pct(p.spy.cagr)}; drawdown ${(p.strategy.max_dd * 100).toFixed(0)}% vs ${(p.spy.max_dd * 100).toFixed(0)}%`);
+}
+
+function verdict() {
+  $('verdict').classList.remove('pass', 'fail');
+  if (SIDE === 'short') { shortVerdict(); return; }
+  if (!P) { $('verdict').innerHTML = '<b class="h">Not tested yet</b>Run <code>python -m backtest.staircase test</code>.'; return; }
+  const v = $('verdict'), p = P.portfolio;
+  v.classList.add(P.passed ? 'pass' : 'fail');
+  const avg = P.signal.mean, zeroIn = P.signal.lo <= 0 && P.signal.hi >= 0, diffIn = P.diff.lo <= 0 && P.diff.hi >= 0;
+  const first = P.passed
+    ? `It passed both tests set before the run, on stocks never used in any earlier test.`
+    : `It failed the tests set before the run, on stocks never used in any earlier test.`;
+  v.innerHTML = `<b class="h">${P.passed ? 'Passed, on a short and flattered sample' : 'No proven edge'}</b>
+    ${first} Trades averaged <b>${sR(avg)}</b> (95% range ${range(P.signal)}), against <b>${sR(P.control.mean)}</b> for random entries in the same stocks.
+    ${zeroIn ? 'That range includes zero. ' : ''}${diffIn ? 'The gap over random entries also includes zero, so the setup itself is unproven. ' : ''}
+    The sample covers ${P.months} months, only stocks still listed, and today's market caps, all of which flatter long momentum.
+    ${P.passed ? 'Treat it as a reason to paper trade, not to size up.' : 'Use this page for paper trading, not as a reason to risk money.'}`;
+  const tile = (l, val, note) => `<div class="tile"><div class="l">${l}</div><div class="v">${val}</div><div class="l">${note}</div></div>`;
+  $('tiles').innerHTML =
+    tile('Average per trade', sR(avg), `${P.signal.n.toLocaleString()} trades after costs`) +
+    tile('Random entries', sR(P.control.mean), `gap ${sR(P.diff.mean)}, range ${range(P.diff)}`) +
+    tile('Win rate', Math.round(P.signal.win * 100) + '%', `median trade ${sR(P.median_r)}`) +
+    tile('Portfolio per year', pct(p.strategy.cagr), `SPY ${pct(p.spy.cagr)}; drawdown ${(p.strategy.max_dd * 100).toFixed(0)}% vs ${(p.spy.max_dd * 100).toFixed(0)}%`);
+}
+
+// ---------------------------------------------------------------- tabs
+
+const TABS = ['playbook', 'watch', 'test', 'claims'];
+function showTab(name) {
+  if (!TABS.includes(name)) name = 'playbook';
+  TABS.forEach(t => $(t).hidden = t !== name);
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
+  save('staircase_tab', name);
+  if (name === 'watch') drawCharts();
+  if (name === 'test') drawPlots();
+}
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+// ---------------------------------------------------------------- calculator
+
+function calc() {
+  const a = +$('c-account').value, risk = +$('c-risk').value, e = +$('c-entry').value, st = +$('c-stop').value;
+  save('staircase_account', $('c-account').value); save('staircase_risk', $('c-risk').value);
+  if (!e || !st) { $('c-out').innerHTML = '<span class="muted">Enter a price and the low of the day to see shares and levels.</span>'; return; }
+  const short = SIDE === 'short';
+  if (short ? st <= e : st >= e) { $('c-out').innerHTML = `<span class="no-mark">The stop must be ${short ? 'above' : 'below'} the entry.</span>`; return; }
+  const per = Math.abs(e - st), byRisk = risk / per, byCap = DATA.max_position * a / e, shares = Math.floor(Math.min(byRisk, byCap));
+  const capped = byCap < byRisk;
+  $('c-out').innerHTML = `<b>${short ? 'Short ' : ''}${shares.toLocaleString()} shares</b>, $${fmt(shares * e)} position, risking $${fmt(shares * per)} (${(per / e * 100).toFixed(2)}% stop).
+    ${short ? 'First trim at the close of the 2nd down day.' : `First trim at <b>${fmt(e + 3 * per)}</b> (+3R).`}
+    ${capped ? `<span class="muted">Limited by the ${Math.round(DATA.max_position * 100)}% position cap, so you risk less than your target.</span>` : ''}
+    ${per / e < 0.005 ? '<span class="no-mark"> A stop under 0.5% is tighter than anything the test could check.</span>' : ''}`;
+}
+
+// ---------------------------------------------------------------- market cards
+
+function cards() {
+  const count = s => ROWS.filter(r => r.status === s).length;
+  const short = SIDE === 'short', on = short ? DATA.short.red : DATA.green;
+  const market = DATA.market.map(t => `
+    <div class="card">
+      <div class="t"><span>${esc(t.ticker)}</span><span class="muted" style="font-weight:400">${fmt(t.close)}</span></div>
+      ${t.emas.map(([name, v]) => `<div class="m"><span class="${(short ? t.close < v : t.close > v) ? 'yes' : 'no-mark'}">${t.close > v ? 'Above' : 'Below'}</span> ${name} ${fmt(v)}</div>`).join('')}
+    </div>`).join('');
+  $('cards').innerHTML = `
+    <div class="card">
+      <div class="t"><span>Market filter</span><span class="grp ${on ? 'on' : 'off'}">${short ? (on ? 'Red' : 'Not red') : (on ? 'Green' : 'Not green')}</span></div>
+      <div class="m">${on ? `The rules allow new ${short ? 'shorts' : 'trades'}.` : `The rules take no new ${short ? 'shorts' : 'trades'}.`}</div>
+    </div>${market}
+    <div class="card"><div class="t">Screener</div><div class="big">${(short ? DATA.short.screened : DATA.screened).toLocaleString()}</div><div class="m">of ${DATA.scanned.toLocaleString()} stocks, before market cap</div></div>
+    <div class="card"><div class="t">Ready</div><div class="big">${count('Ready')}</div><div class="m">${count('One rule short')} more are one rule short</div></div>`;
+}
+
+// ---------------------------------------------------------------- candlesticks
+
+function chartHtml(ticker) {
+  return `<div class="chart" data-chart="${esc(ticker)}"></div>
+    <div class="readout" data-readout="${esc(ticker)}"></div>
+    <div class="keys">
+      <span><i class="up"></i>Up day</span><span><i class="down"></i>Down day</span>
+      ${EMAS.map(([k, n]) => `<span><i style="background:var(--${k})"></i>${n}</span>`).join('')}
+      <span><i class="base"></i>Base</span>
+      <a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker.replace('-', '.'))}" target="_blank" rel="noopener">Open in TradingView</a>
+    </div>`;
+}
+
+function niceTicks(lo, hi, count) {
+  const raw = (hi - lo) / count, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+  const out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) out.push(v);
+  return out;
+}
+
+function drawChart(el) {
+  if (!el.clientWidth) return;
+  const r = BY_TICKER[el.dataset.chart], d = r.chart;
+  const W = Math.max(320, el.clientWidth), small = W < 560;
+  const idx = DATA.dates.map((_, i) => i).filter(i => d.c[i] !== null).slice(small ? -60 : 0);
+  const H = small ? 300 : 380, L = 4, R = 112, top = 8, priceBottom = H - (small ? 86 : 104), volTop = priceBottom + 12, volBottom = H - 22;
+  const step = (W - L - R) / idx.length, bw = Math.max(1.5, step * 0.62);
+  const x = n => L + step * (n + 0.5);
+  const vals = [r.trigger, r.undercut];
+  idx.forEach(i => { vals.push(d.h[i], d.l[i]); EMAS.forEach(([k]) => { if (d[k][i] !== null) vals.push(d[k][i]); }); });
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo) * 0.04; lo -= pad; hi += pad;
+  const y = v => top + (hi - v) / (hi - lo) * (priceBottom - top);
+  const maxVol = Math.max(...idx.map(i => d.v[i]));
+  const vy = v => volBottom - v / maxVol * (volBottom - volTop);
+  const isShort = r.side === 'short', otherName = isShort ? 'Base high' : 'Base low';
+  const yT = y(r.trigger), yU = isShort ? Math.min(y(r.undercut), yT - 15) : Math.max(y(r.undercut), yT + 15);
+  const ticks = niceTicks(lo, hi, small ? 4 : 6);
+  let s = '';
+  const baseX = x(idx.length - Math.min(r.base_days, idx.length)) - step / 2;
+  s += `<rect x="${baseX}" y="${top}" width="${W - R - baseX}" height="${priceBottom - top}" fill="var(--chip)"/>`;
+  ticks.forEach(t => {
+    const ty = y(t);
+    s += `<line x1="${L}" x2="${W - R}" y1="${ty}" y2="${ty}" stroke="var(--line)" stroke-width="1"/>`;
+    if (Math.abs(ty - yT) > 14 && Math.abs(ty - yU) > 14)
+      s += `<text x="${W - R + 6}" y="${ty + 4}" font-size="11" fill="var(--muted)">${t.toLocaleString(undefined, {maximumFractionDigits: 2})}</text>`;
+  });
+  let lastMonth = null, lastLabelX = -99;
+  idx.forEach((i, n) => {
+    const month = DATA.dates[i].slice(0, 7);
+    if (month !== lastMonth && lastMonth !== null && x(n) - lastLabelX > 44) {
+      s += `<text x="${x(n)}" y="${H - 6}" font-size="11" fill="var(--muted)" text-anchor="middle">${new Date(month + '-15').toLocaleString(undefined, {month: 'short'})}</text>`;
+      lastLabelX = x(n);
+    }
+    lastMonth = month;
+  });
+  idx.forEach((i, n) => {
+    s += `<rect x="${x(n) - bw / 2}" y="${vy(d.v[i])}" width="${bw}" height="${volBottom - vy(d.v[i])}" fill="var(--muted)" opacity="0.45"/>`;
+  });
+  s += `<text x="${W - R + 6}" y="${volTop + 9}" font-size="11" fill="var(--muted)">Vol ${compact(maxVol)}</text>`;
+  EMAS.forEach(([k]) => {
+    const pts = idx.map((i, n) => d[k][i] === null ? null : `${x(n).toFixed(1)},${y(d[k][i]).toFixed(1)}`).filter(Boolean).join(' ');
+    s += `<polyline points="${pts}" fill="none" stroke="var(--${k})" stroke-width="1.75"/>`;
+  });
+  idx.forEach((i, n) => {
+    const up = d.c[i] >= d.o[i], color = up ? 'var(--good)' : 'var(--bad)';
+    const by = y(Math.max(d.o[i], d.c[i])), bh = Math.max(1, Math.abs(y(d.o[i]) - y(d.c[i])));
+    s += `<line x1="${x(n)}" x2="${x(n)}" y1="${y(d.h[i])}" y2="${y(d.l[i])}" stroke="${color}" stroke-width="1"/>`;
+    s += `<rect x="${x(n) - bw / 2}" y="${by}" width="${bw}" height="${bh}" fill="${up ? 'var(--panel)' : color}" stroke="${color}" stroke-width="1"/>`;
+  });
+  [['Trigger', r.trigger, yT], [otherName, r.undercut, yU]].forEach(([name, v, ly]) => {
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--text)" stroke-width="1" stroke-dasharray="${name === 'Trigger' ? '5 3' : '2 3'}"/>`;
+    s += `<text x="${W - R + 6}" y="${ly + 4}" font-size="11" font-weight="600" fill="var(--text)">${name} ${fmt(v)}</text>`;
+  });
+  s += `<line class="cross" x1="0" x2="0" y1="${top}" y2="${volBottom}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily candlestick chart of ${esc(r.ticker)} with EMA8, EMA21, EMA50, trigger ${fmt(r.trigger)} and ${otherName.toLowerCase()} ${fmt(r.undercut)}">${s}</svg>`;
+  const readout = document.querySelector(`[data-readout="${CSS.escape(r.ticker)}"]`);
+  const show = n => {
+    const i = idx[n], chg = n > 0 ? d.c[i] / d.c[idx[n - 1]] - 1 : 0;
+    if (readout) readout.textContent = `${DATA.dates[i]}  O ${fmt(d.o[i])}  H ${fmt(d.h[i])}  L ${fmt(d.l[i])}  C ${fmt(d.c[i])}  ${chg >= 0 ? '+' : ''}${(chg * 100).toFixed(1)}%  Vol ${compact(d.v[i])}`;
+  };
+  show(idx.length - 1);
+  const svg = el.firstChild, cross = svg.querySelector('.cross');
+  svg.onpointermove = e => {
+    const box = svg.getBoundingClientRect(), px = (e.clientX - box.left) * W / box.width;
+    const n = Math.min(idx.length - 1, Math.max(0, Math.floor((px - L) / step)));
+    cross.setAttribute('x1', x(n)); cross.setAttribute('x2', x(n)); cross.setAttribute('visibility', 'visible');
+    show(n);
+  };
+  svg.onpointerleave = () => { cross.setAttribute('visibility', 'hidden'); show(idx.length - 1); };
+  svg.onclick = e => e.stopPropagation();
+}
+
+function drawCharts() { document.querySelectorAll('[data-chart]').forEach(drawChart); }
+
+function setPins(next) {
+  pins = next;
+  save('staircase_pins', JSON.stringify(pins));
+  board(); rows();
+}
+
+function board() {
+  $('pincount').textContent = pins.length ? `— ${pins.length} picked` : '';
+  $('board').innerHTML = pins.length ? pins.map(t => {
+    const r = BY_TICKER[t];
+    if (!r) return `<div class="pin"><div class="pin-head"><b>${esc(t)}</b><button data-unpin="${esc(t)}">Remove</button></div>
+      <div class="muted">No longer on the list, so there is no chart data for it today.</div></div>`;
+    return `<div class="pin"><div class="pin-head">
+        <span class="who"><b>${esc(t)}</b> <span class="muted">${r.side === 'short' ? 'Short · ' : 'Long · '}${esc(r.name)} ·${esc(r.status)} · ${r.passed}/${r.total} rules</span></span>
+        <button data-unpin="${esc(t)}">Remove</button></div>${chartHtml(t)}</div>`;
+  }).join('') : '<p class="muted" style="margin:0">Tick the Chart box on any row below to keep its chart here. Your picks stay when you reload or regenerate the page.</p>';
+  document.querySelectorAll('[data-unpin]').forEach(b => b.onclick = () => setPins(pins.filter(t => t !== b.dataset.unpin)));
+  $('board').querySelectorAll('[data-chart]').forEach(drawChart);
+}
+
+function rows() {
+  const risk = Math.max(0, +$('c-risk').value || 0), account = Math.max(0, +$('c-account').value || 0);
+  const stopPct = P ? P.median_risk : 0.03;
+  const min = +$('min').value, status = $('status').value, find = $('find').value.trim().toLowerCase();
+  const list = ROWS.filter(r => find ? r.ticker.toLowerCase().startsWith(find) || r.name.toLowerCase().includes(find)
+                                          : r.passed >= min && (!status || r.status === status));
+  $('shown').textContent = `showing ${list.length} of ${ROWS.length}`;
+  $('rows').innerHTML = list.length ? list.map(r => {
+    const shares = Math.floor(Math.min(risk / (stopPct * r.trigger), DATA.max_position * account / r.trigger));
+    const row = `<tr class="row" data-key="${esc(r.ticker)}">
+      <td><input type="checkbox" data-pin="${esc(r.ticker)}" aria-label="Keep ${esc(r.ticker)} chart in My charts" ${pins.includes(r.ticker) ? 'checked' : ''}></td>
+      <td><span class="score ${r.passed === r.total ? 's-hi' : 's-mid'}">${r.passed}/${r.total}</span></td>
+      <td><b>${esc(r.ticker)}</b></td>
+      <td class="name" title="${esc(r.name)}">${esc(r.name)}</td>
+      <td>${esc(r.status)}</td>
+      <td class="num">${fmt(r.close)}</td><td class="num">${fmt(r.trigger)}</td>
+      <td class="num">${(r.to_trigger * 100).toFixed(1)}%</td><td class="num">${fmt(r.undercut)}</td>
+      <td class="num">${r.base_days}</td><td class="num">${(r.adr * 100).toFixed(1)}%</td>
+      <td class="num">${r.rs === null ? '–' : Math.round(r.rs * 100)}</td><td class="num">${r.market_cap === null ? '–' : compact(r.market_cap)}</td>
+      <td class="num">${r.avg_volume.toLocaleString()}</td>
+      <td class="num">${shares.toLocaleString()}</td></tr>`;
+    if (open !== r.ticker) return row;
+    const parts = r.checks.map(([l, ok]) => `<div><span>${esc(l)}</span><span class="${ok ? 'yes' : 'no-mark'}">${ok ? 'Yes' : 'No'}</span></div>`).join('');
+    const isWarning = n => n.startsWith('NO NEW TRADE') || n.startsWith('Not a setup') || n.startsWith('Possible takeover');
+    return row + `<tr class="detail"><td colspan="15"><div class="detail-wrap">
+      ${pins.includes(r.ticker) ? '<p class="muted" style="margin:0">This chart is also in My charts.</p>' : chartHtml(r.ticker)}
+      <div class="detail-grid">
+      <ol>${r.notes.map(n => `<li class="${isWarning(n) ? 'no' : ''}">${esc(n)}</li>`).join('')}</ol>
+      <div class="parts"><div class="muted"><span>Base rules</span><span>Met</span></div>${parts}
+        <div style="margin-top:6px;border-top:1px solid var(--line);padding-top:6px"><span>Rules met</span><b>${r.passed}/${r.total}</b></div>
+      </div></div></div></td></tr>`;
+  }).join('') : `<tr><td colspan="15" class="muted">${find ? `Nothing matches "${esc(find)}". It may not have passed the screener with at least ${$('min').min} base rules today.` : 'No setups match the filters. Lower the minimum rules met to see more.'}</td></tr>`;
+  document.querySelectorAll('tr.row').forEach(r => r.onclick = () => { open = open === r.dataset.key ? null : r.dataset.key; rows(); });
+  document.querySelectorAll('[data-pin]').forEach(c => {
+    c.onclick = e => e.stopPropagation();
+    c.onchange = () => setPins(c.checked ? [...pins, c.dataset.pin] : pins.filter(t => t !== c.dataset.pin));
+  });
+  $('rows').querySelectorAll('[data-chart]').forEach(drawChart);
+}
+
+// ---------------------------------------------------------------- backtest
+
+function sliceTable(s) {
+  return `<div class="tablewrap"><table><thead><tr><th>Slice</th><th class="num">Trades</th><th class="num">Win rate</th><th class="num">Avg per trade</th><th class="num">95% range, by month</th></tr></thead><tbody>
+    ${Object.entries(s.slices).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="num">${v.n.toLocaleString()}</td><td class="num">${v.win === null ? '–' : Math.round(v.win * 100) + '%'}</td><td class="num">${sR(v.mean)}</td><td class="num">${range(v)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function testBody() {
+  if (!P && !REP) { $('testbody').innerHTML = '<p class="muted">No results yet.</p>'; return; }
+  if (SIDE === 'short') { shortTestBody(); return; }
+  const repLine = REP ? `<tr><td>Same rules, S&amp;P 1500, ${REP.months} months, entry at the daily close (used tickers, supporting only)</td><td class="num">${REP.signal.n.toLocaleString()}</td><td class="num">${sR(REP.signal.mean)}</td><td class="num">${range(REP.signal)}</td><td class="num">${sR(REP.diff.mean)}</td><td class="num">${range(REP.diff)}</td></tr>` : '';
+  $('testbody').innerHTML = `
+    <h2>Three tests of the same idea</h2>
+    <div class="tablewrap"><table><thead><tr><th>Test</th><th class="num">Trades</th><th class="num">Avg per trade</th><th class="num">95% range</th><th class="num">Vs random</th><th class="num">95% range</th></tr></thead><tbody>
+      <tr><td><b>This test:</b> stocks outside the S&amp;P 1500, ${P.months} months, 1h entry</td><td class="num">${P.signal.n.toLocaleString()}</td><td class="num"><b>${sR(P.signal.mean)}</b></td><td class="num">${range(P.signal)}</td><td class="num"><b>${sR(P.diff.mean)}</b></td><td class="num">${range(P.diff)}</td></tr>
+      ${repLine}
+      <tr><td>Earlier, stricter rules: S&amp;P 1500 holdout, 10 years, daily close</td><td class="num">${E.trades}</td><td class="num">${sR(E.mean)}</td><td class="num">${sR(E.lo)} to ${sR(E.hi)}</td><td class="num">${sR(E.diff)}</td><td class="num">${sR(E.diff_lo)} to ${sR(E.diff_hi)}</td></tr>
+    </tbody></table></div>
+    <p class="legend">${esc(P.meta)} ${P.start} to ${P.end}.</p>
+    <div class="two">
+      <div class="box"><h2 style="margin:0 0 2px">Growth of $1</h2><div class="muted" style="font-size:12.5px">5 positions at most, 1% risk per trade, ${Math.round(P.portfolio.exposure * 100)}% invested on average</div>
+        <div class="plot" id="p-equity"></div><div class="readout" id="p-equity-r"></div>
+        <div class="keys"><span><i style="background:var(--s1)"></i>Strategy</span><span><i style="background:var(--s2)"></i>SPY with dividends</span></div></div>
+      <div class="box"><h2 style="margin:0 0 2px">How trades ended</h2><div class="muted" style="font-size:12.5px">Number of trades by result in R, after costs. Labels mark bar edges, and bars get wider in R to the right</div>
+        <div class="plot" id="p-hist"></div><div class="readout" id="p-hist-r"></div></div>
+    </div>
+    <h2>Breakdown</h2>${sliceTable(P)}
+    <p class="legend">Median risk ${(P.median_risk * 100).toFixed(1)}% of price. Median hold ${P.median_hold.toFixed(0)} days. ${Math.round(P.same_day_stop * 100)}% stopped out the same day. Best ${sR(P.best, 1)}, worst ${sR(P.worst, 1)}.${P.top5_share ? ` The top 5% of trades made ${Math.round(P.top5_share * 100)}% of the total.` : ''}</p>
+    <p class="legend"><b>Don't read the two best-looking rows as a tradable edge.</b> "Best-case fill" assumes a fill at the trigger with the stop at a low that may have come after the fill, using that hour's full volume, so it can't be traded as written and hides many stop-outs. Its true result lies somewhere below this figure, and only 5 minute data can show where. "Closed above the trigger" uses the day's close, which isn't known at entry.</p>
+    <p class="legend">The portfolio took ${P.portfolio.taken} of the ${P.signal.n.toLocaleString()} trades, because it holds 5 positions at most, so its result depends heavily on which ones it happened to take. Its returns carry the same survivorship and market cap flattery as the rest of this test.</p>
+    <div class="two">
+      <div><h2>By exit</h2><div class="tablewrap"><table><thead><tr><th>Exit</th><th class="num">Trades</th><th class="num">Avg</th></tr></thead><tbody>
+        ${P.exits.map(e => `<tr><td>${esc(e.reason)}</td><td class="num">${e.n}</td><td class="num">${sR(e.r)}</td></tr>`).join('')}</tbody></table></div></div>
+      <div><h2>By year</h2><div class="tablewrap"><table><thead><tr><th>Year</th><th class="num">Trades</th><th class="num">Avg</th><th class="num">Random</th></tr></thead><tbody>
+        ${P.by_year.map(y => `<tr><td>${y.year}</td><td class="num">${y.n}</td><td class="num">${sR(y.r)}</td><td class="num">${sR(y.control)}</td></tr>`).join('')}</tbody></table></div></div>
+    </div>
+    ${REP ? `<h2>S&amp;P 1500 replication</h2>${sliceTable(REP)}` : ''}
+    <h2>All ${P.trades.length.toLocaleString()} trades</h2>
+    <div class="tablewrap scroll"><table><thead><tr><th>Date</th><th>Ticker</th><th class="num">Entry</th><th class="num">Stop</th><th class="num">Risk</th><th class="num">Result</th><th class="num">Random</th><th class="num">Days</th><th>Exit</th></tr></thead><tbody>
+      ${P.trades.map(t => `<tr><td>${t.date}</td><td><b>${esc(t.ticker)}</b></td><td class="num">${fmt(t.entry)}</td><td class="num">${fmt(t.stop)}</td><td class="num">${(t.risk * 100).toFixed(1)}%</td><td class="num">${sR(t.r)}</td><td class="num">${sR(t.control)}</td><td class="num">${t.held}</td><td>${esc(t.exit)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function shortTestBody() {
+  const M = P || REP, testName = M === DATA.short.primary ? '1h' : '10-year daily', row = (name, t) => t ? `<tr><td>${name}${t.enough_months ? '' : ' <span class="muted">(too thin to judge)</span>'}</td><td class="num">${t.signal.n.toLocaleString()}</td><td class="num">${t.months}</td><td class="num"><b>${sR(t.signal.mean)}</b></td><td class="num">${range(t.signal)}</td><td class="num"><b>${sR(t.diff.mean)}</b></td><td class="num">${range(t.diff)}</td></tr>` : `<tr><td>${name}</td><td class="num">0</td><td colspan="5" class="muted">No trades</td></tr>`;
+  const detail = (name, t) => t ? `<h2>${name}</h2><p class="legend">${esc(t.meta)} ${t.start} to ${t.end}.</p>${sliceTable(t)}
+    <p class="legend">Median risk ${(t.median_risk * 100).toFixed(1)}% of price. Median hold ${t.median_hold.toFixed(0)} days. ${Math.round(t.same_day_stop * 100)}% stopped out the same day. Best ${sR(t.best, 1)}, worst ${sR(t.worst, 1)}.${t.top5_share ? ` The top 5% of trades made ${Math.round(t.top5_share * 100)}% of the total.` : ''} Portfolio: ${t.portfolio.taken} trades, ${pct(t.portfolio.strategy.cagr)} a year with ${(t.portfolio.strategy.max_dd * 100).toFixed(0)}% drawdown, against ${pct(t.portfolio.spy.cagr)} and ${(t.portfolio.spy.max_dd * 100).toFixed(0)}% for SPY.</p>
+    <div class="two">
+      <div><h2>By exit</h2><div class="tablewrap"><table><thead><tr><th>Exit</th><th class="num">Trades</th><th class="num">Avg</th></tr></thead><tbody>
+        ${t.exits.map(e => `<tr><td>${{ema_close: 'Close above EMA8 and EMA21', stop: 'Stop', open: 'Still open'}[e.reason] || esc(e.reason)}</td><td class="num">${e.n}</td><td class="num">${sR(e.r)}</td></tr>`).join('')}</tbody></table></div></div>
+      <div><h2>By year</h2><div class="tablewrap"><table><thead><tr><th>Year</th><th class="num">Trades</th><th class="num">Avg</th><th class="num">Random</th></tr></thead><tbody>
+        ${t.by_year.map(y => `<tr><td>${y.year}</td><td class="num">${y.n}</td><td class="num">${sR(y.r)}</td><td class="num">${sR(y.control)}</td></tr>`).join('')}</tbody></table></div></div>
+    </div>` : '';
+  $('testbody').innerHTML = `
+    <h2>Two tests of the short rules</h2>
+    <div class="tablewrap"><table><thead><tr><th>Test</th><th class="num">Trades</th><th class="num">Months</th><th class="num">Avg per trade</th><th class="num">95% range</th><th class="num">Vs random</th><th class="num">95% range</th></tr></thead><tbody>
+      ${row('Outside the S&amp;P 1500, 1h entries', DATA.short.primary)}${row('S&amp;P 1500, 10 years, daily close', DATA.short.replication)}
+    </tbody></table></div>
+    <p class="legend">A test needs at least 12 months with trades to carry a verdict. Charts below show the ${testName} test.</p>
+    <div class="two">
+      <div class="box"><h2 style="margin:0 0 2px">Growth of $1</h2><div class="muted" style="font-size:12.5px">5 positions at most, 1% risk per trade, ${Math.round(M.portfolio.exposure * 100)}% short on average</div>
+        <div class="plot" id="p-equity"></div><div class="readout" id="p-equity-r"></div>
+        <div class="keys"><span><i style="background:var(--s1)"></i>Short strategy</span><span><i style="background:var(--s2)"></i>SPY with dividends</span></div></div>
+      <div class="box"><h2 style="margin:0 0 2px">How trades ended</h2><div class="muted" style="font-size:12.5px">Number of trades by result in R, after costs. Labels mark bar edges, and bars get wider in R to the right</div>
+        <div class="plot" id="p-hist"></div><div class="readout" id="p-hist-r"></div></div>
+    </div>
+    ${detail('Outside the S&amp;P 1500, 1h entries', DATA.short.primary)}
+    ${detail('S&amp;P 1500, 10 years, daily close', DATA.short.replication)}
+    <p class="legend"><b>Don't read the best-looking rows as a tradable edge.</b> "Best-case fill" uses the whole hour's high and volume, so it can't be traded as written. "Closed below the trigger" uses the day's close, which isn't known at entry.</p>
+    <h2>All ${M.trades.length.toLocaleString()} trades in the ${testName} test</h2>
+    <div class="tablewrap scroll"><table><thead><tr><th>Date</th><th>Ticker</th><th class="num">Entry</th><th class="num">Stop</th><th class="num">Risk</th><th class="num">Result</th><th class="num">Random</th><th class="num">Days</th><th>Exit</th></tr></thead><tbody>
+      ${M.trades.map(t => `<tr><td>${t.date}</td><td><b>${esc(t.ticker)}</b></td><td class="num">${fmt(t.entry)}</td><td class="num">${fmt(t.stop)}</td><td class="num">${(t.risk * 100).toFixed(1)}%</td><td class="num">${sR(t.r)}</td><td class="num">${sR(t.control)}</td><td class="num">${t.held}</td><td>${esc(t.exit === 'ema_close' ? 'above EMAs' : t.exit)}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+function drawEquity() {
+  const el = $('p-equity'); if (!el || !el.clientWidth) return;
+  const p = (P || REP).portfolio, W = el.clientWidth, H = 260, L = 4, R = 74, T = 10, B = 24, n = p.dates.length;
+  const all = [...p.curve, ...p.spy_curve], lo = Math.min(...all) * 0.98, hi = Math.max(...all) * 1.02;
+  const x = i => L + i / (n - 1) * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let s = '';
+  niceTicks(lo, hi, 5).forEach(t => { s += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${W - R + 6}" y="${y(t) + 4}" font-size="11" fill="var(--muted)">$${t.toFixed(2)}</text>`; });
+  let last = '';
+  p.dates.forEach((d, i) => { const q = d.slice(0, 4); if (q !== last && last) s += `<text x="${x(i)}" y="${H - 6}" font-size="11" fill="var(--muted)" text-anchor="middle">${q}</text>`; last = q; });
+  const line = (arr, c) => `<polyline points="${arr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--${c})" stroke-width="2" stroke-linejoin="round"/>`;
+  s += line(p.spy_curve, 's2') + line(p.curve, 's1');
+  s += `<line class="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--muted)" visibility="hidden"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Growth of one dollar: strategy ends at ${p.curve[n - 1].toFixed(2)}, SPY at ${p.spy_curve[n - 1].toFixed(2)}">${s}</svg>`;
+  const out = $('p-equity-r'), show = i => out.textContent = `${p.dates[i]}   Strategy $${p.curve[i].toFixed(2)}   SPY $${p.spy_curve[i].toFixed(2)}`;
+  show(n - 1);
+  const svg = el.firstChild, cross = svg.querySelector('.cross');
+  svg.onpointermove = e => { const b = svg.getBoundingClientRect(), i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - b.left) * W / b.width - L) / (W - L - R) * (n - 1)))); cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible'); show(i); };
+  svg.onpointerleave = () => { cross.setAttribute('visibility', 'hidden'); show(n - 1); };
+}
+
+function drawHist() {
+  const el = $('p-hist'); if (!el || !el.clientWidth) return;
+  const P_ = P || REP;
+  const edges = [-Infinity, -1.5, -1, -0.5, 0, 0.5, 1, 2, 3, 5, 10, Infinity];
+  const labels = ['', '−1.5', '−1', '−0.5', '0', '0.5', '1', '2', '3', '5', '10'];
+  const names = ['below −1.5R', '−1.5R to −1R', '−1R to −0.5R', '−0.5R to 0R', '0R to 0.5R', '0.5R to 1R', '1R to 2R', '2R to 3R', '3R to 5R', '5R to 10R', '10R or more'];
+  const counts = labels.map((_, i) => P_.r_values.filter(v => v >= edges[i] && v < edges[i + 1]).length);
+  const W = el.clientWidth, H = 260, L = 4, R = 4, T = 18, B = 24, max = Math.max(...counts), total = P_.r_values.length;
+  const step = (W - L - R) / counts.length, bw = Math.max(4, step - 2), y = v => T + (1 - v / max) * (H - T - B);
+  let s = '';
+  counts.forEach((c, i) => {
+    const h = Math.max(c ? 1 : 0, H - B - y(c)), bx = L + i * step + 1, by = H - B - h;
+    s += `<g data-i="${i}"><rect x="${L + i * step}" y="${T}" width="${step}" height="${H - T - B}" fill="transparent"/><path d="M${bx},${H - B} V${by + Math.min(4, h)} Q${bx},${by} ${bx + Math.min(4, bw / 2)},${by} H${bx + bw - Math.min(4, bw / 2)} Q${bx + bw},${by} ${bx + bw},${by + Math.min(4, h)} V${H - B} Z" fill="var(--s1)"/></g>`;
+    if (c === max) s += `<text x="${bx + bw / 2}" y="${by - 5}" font-size="11" fill="var(--text)" text-anchor="middle">${c.toLocaleString()}</text>`;
+    if (i > 0) s += `<text x="${L + i * step}" y="${H - 8}" font-size="${W < 460 ? 9 : 11}" fill="var(--muted)" text-anchor="middle">${labels[i]}</text>`;
+  });
+  s += `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--muted)"/>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Histogram of trade results in R">${s}</svg>`;
+  const out = $('p-hist-r'), rest = `${Math.round(P_.signal.win * 100)}% of trades made money. Hover a bar for its count.`;
+  out.textContent = rest;
+  el.querySelectorAll('g').forEach(g => {
+    const i = +g.dataset.i;
+    g.onpointerenter = () => out.textContent = `${names[i]}: ${counts[i].toLocaleString()} trades, ${(counts[i] / total * 100).toFixed(1)}%`;
+    g.onpointerleave = () => out.textContent = rest;
+  });
+}
+
+function drawPlots() { if (P || REP) { drawEquity(); drawHist(); } }
+
+function claims() {
+  const row = (a, b, c) => `<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`;
+  if (SIDE === 'short') {
+    const S = P || REP;
+    $('claimrows').innerHTML =
+      row('Over $1M this year', 'Stated on camera. No account statement or trade record.', 'Can\'t be checked. The video also covers no position sizing, so the claim says little about the method.') +
+      row('"One of the most simple strategies"', 'A screener, a level, a stop and an exit, with the base and trim sizes left to judgement.', S ? `Mechanical version: ${sR(S.signal.mean)} per trade, ${S.signal.win === null ? '–' : Math.round(S.signal.win * 100) + '%'} winners, median ${sR(S.median_r)}.` : 'No test trades.') +
+      row('The screener finds "an absolutely beautiful short"', 'A list of stocks just under their EMA8 and EMA21.', S ? (S.control.mean === null ? 'Too few trades.' : `Random shorts from the same screener averaged ${sR(S.control.mean)}.`) : 'No test trades.') +
+      row('High volume "confirms institutions are getting out"', 'Stated as fact. No ownership data shown.', 'Volume can\'t show who is selling, so the claim isn\'t testable from this data. The test only checks whether the volume rule helps entries.') +
+      row('Examples fall after the trigger', 'Every worked example, including the marked LUMN trade, is a winner.', S ? `${Math.round(S.same_day_stop * 100)}% of test trades stopped out the same day. Vs random: ${sR(S.diff.mean)}, range ${range(S.diff)}.` : 'No test trades.');
+    return;
+  }
+  const q = P ? `Mechanical version: best trade ${sR(P.best, 1)}, median trade ${sR(P.median_r)}, ${Math.round(P.signal.win * 100)}% winners.` : 'Not tested yet.';
+  $('claimrows').innerHTML =
+    row('"Made me 7 figures in 1 month"', 'No account statement or verified record. Only the claim, in the title.', 'Can\'t be checked. Results from one month say little about a method, and position size could be anything.') +
+    row('"Made me over $500,000" on one trade', 'A chart with a large move. No fills, size or account shown.', 'Can\'t be checked. A hand-picked winner shows that a move happened, not how often this setup leads to one.') +
+    row('"Already went 45 RR"', 'A position-tool drawing with a stop of about 1%, marked as open profit.', q) +
+    row('"Stocks explode" out of the base', 'Every example shown is a winner.', P ? `${Math.round(P.same_day_stop * 100)}% of test trades stopped out the same day, and the typical trade lost ${sR(Math.min(P.median_r, 0)).replace('−', '')}.` : 'Not tested yet.') +
+    row('"Simple", works by swinging winners', 'Few rules are given, and no exit rule beyond not selling it all on one day.', P ? (P.diff.lo > 0 ? 'The setup beat random entries in the same stocks.' : `The gap over random entries was ${sR(P.diff.mean)}, range ${range(P.diff)}, so the setup isn't proven to add anything.`) : 'Not tested yet.');
+}
+
+$('c-account').value = load('staircase_account', DATA.default_account);
+$('c-risk').value = load('staircase_risk', DATA.default_risk);
+['c-account', 'c-risk', 'c-entry', 'c-stop'].forEach(k => $(k).oninput = () => { calc(); rows(); });
+document.querySelectorAll('[data-side]').forEach(b => b.onclick = () => setSide(b.dataset.side));
+$('min').oninput = () => { $('minv').textContent = $('min').value; rows(); };
+$('status').onchange = rows;
+$('find').oninput = rows;
+$('asof').textContent = `— as of the ${DATA.as_of} close`;
+let resizeTimer;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { drawCharts(); drawPlots(); }, 150); });
+setSide(load('staircase_side', 'long'));
+</script>
+</body>
+</html>
