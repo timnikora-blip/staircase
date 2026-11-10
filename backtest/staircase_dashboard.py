@@ -8,6 +8,8 @@ Rules and test plan: Staircase_Strategy.md. Test results come from results/stair
 """
 import argparse
 import json
+import logging
+import warnings
 import webbrowser
 from pathlib import Path
 
@@ -177,6 +179,52 @@ def scan_short(bars):
     return dict(rows=rows, red=is_red, screened=screened)
 
 
+def add_today(rows, short_rows):
+    """During the session: today's price so far for every listed ticker, and whether it has crossed its trigger.
+    The setups themselves still come from the last close, because the rules are judged on closing bars."""
+    now = pd.Timestamp.now(tz="America/New_York")
+    if now.weekday() >= 5 or not 9 * 60 + 30 <= now.hour * 60 + now.minute < 16 * 60:
+        return None
+    import yfinance as yf
+
+    logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+    tickers = sorted({r["ticker"] for r in rows + short_rows})
+    bars, last_time = {}, None
+    for start in range(0, len(tickers), 200):
+        batch = tickers[start:start + 200]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            raw = yf.download(batch, period="1d", interval="5m", auto_adjust=False, group_by="ticker",
+                              prepost=False, progress=False, threads=True)
+        if raw is None or raw.empty:
+            continue
+        for t in batch:
+            if t not in raw.columns.get_level_values(0):
+                continue
+            df = raw[t].dropna(subset=["Close"])
+            df = df[df.index.tz_convert("America/New_York").date == now.date()]
+            if df.empty:
+                continue
+            bars[t] = dict(last=float(df["Close"].iloc[-1]), high=float(df["High"].max()), low=float(df["Low"].min()),
+                           volume=int(df["Volume"].sum()))
+            stamp = df.index[-1].tz_convert("America/New_York") + pd.Timedelta(minutes=5)
+            last_time = stamp if last_time is None else max(last_time, stamp)
+    if not bars:
+        return None   # holiday, or Yahoo returned nothing
+    for r in rows + short_rows:
+        b = bars.get(r["ticker"])
+        if not b:
+            continue
+        short = r.get("side") == "short"
+        b["hit"] = b["low"] <= r["trigger"] if short else b["high"] >= r["trigger"]
+        r["today"] = b
+        if b["hit"]:
+            r["notes"].insert(0, f"{'Broke below' if short else 'Traded above'} the trigger today ({'low' if short else 'high'} {md._p(b['low'] if short else b['high'])}, "
+                                 f"now {md._p(b['last'])}). Volume so far {b['volume']:,} against {r['breakout_volume']:,} for a full breakout day. "
+                                 "Check the 5 minute chart: the entry needs heavy volume at the break, and a late chase is not the setup.")
+    return dict(time=f"{min(last_time, now):%H:%M}", count=len(bars))
+
+
 def load_summary(name):
     path = RESULTS / f"summary_{name}.json"
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
@@ -196,6 +244,7 @@ def main():
     short = scan_short(bars)
     short.update(primary=load_summary("short_primary"), replication=load_summary("short_daily"))
     data["short"] = short
+    data["live"] = add_today(data["rows"], short["rows"])
     data.update(generated=f"{pd.Timestamp.now(tz='America/New_York'):%Y-%m-%d %H:%M} New York", default_risk=100, default_account=10000,
                 max_position=m.MAX_POSITION, cloud=args.cloud, primary=load_summary("primary"), replication=load_summary("replication"), earlier=EARLIER)
     html = TEMPLATE.read_text(encoding="utf-8").replace("__DATA__", json.dumps(data, default=lambda x: x.item()).replace("</", "<\\/"))
@@ -206,6 +255,9 @@ def main():
     short_counts = pd.Series([r["status"] for r in short["rows"]]).value_counts().to_dict()
     print(f"as of {data['as_of']}, market {'green' if data['green'] else 'not green'}, {data['scanned']} scanned, {data['screened']} passed the long screener: {counts}")
     print(f"short side {'on' if short['red'] else 'off'}, {short['screened']} passed the short screener: {short_counts}")
+    if data["live"]:
+        hits = sum(bool(r.get("today", {}).get("hit")) for r in data["rows"] + short["rows"])
+        print(f"live prices at {data['live']['time']} for {data['live']['count']} tickers, {hits} crossed their trigger today")
     print(f"wrote {out.resolve()} ({out.stat().st_size / 1e6:.1f} MB)")
     if not args.no_open:
         webbrowser.open(out.resolve().as_uri())
