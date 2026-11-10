@@ -200,7 +200,7 @@ button { background: var(--chip); color: var(--text); border: 1px solid var(--li
     <div class="tablewrap">
       <table class="wide">
         <thead><tr>
-          <th>Chart</th><th>Rules</th><th>Ticker</th><th>Name</th><th>Status</th><th class="num">Close</th><th class="num">Trigger</th><th class="num">To trigger</th>
+          <th>Chart</th><th>Rules</th><th>Ticker</th><th>Name</th><th>Status</th><th class="num">Close</th><th class="num">Trigger</th><th class="num">To trigger</th><th class="num" id="th-now" hidden>Now</th>
           <th class="num" id="th-base">Base low</th><th class="num">Base days</th><th class="num">ADR</th><th class="num">RS rank</th>
           <th class="num">Market cap</th><th class="num">Avg volume</th><th class="num">Est. shares</th>
         </tr></thead>
@@ -250,7 +250,7 @@ function setSide(next) {
   document.querySelectorAll('[data-side]').forEach(b => b.setAttribute('aria-pressed', b.dataset.side === SIDE));
   $('title').textContent = short ? 'Staircase Breakdown' : 'Staircase Breakout';
   document.title = $('title').textContent;
-  $('sub').textContent = `Generated ${DATA.generated}, from the ${DATA.as_of} close. Source: ${short ? 'your supplied video, "My full strategy guide as 7 figure trader"' : '@SRxTrades, "The strategy that made me 7 figures in 1 month"'}. ${DATA.cloud ? 'Refreshed automatically before the open and after the close.' : 'Regenerate each morning: .venv\\Scripts\\python -m backtest.staircase_dashboard'}`;
+  $('sub').textContent = `Generated ${DATA.generated}, from the ${DATA.as_of} close. Source: ${short ? 'your supplied video, "My full strategy guide as 7 figure trader"' : '@SRxTrades, "The strategy that made me 7 figures in 1 month"'}. ${DATA.live ? `Prices in the Now column are from ${DATA.live.time} New York today; setups still come from the last close. ` : ''}${DATA.cloud ? 'Refreshed automatically before the open, about 30 minutes after it, and after the close.' :'Regenerate each morning: .venv\\Scripts\\python -m backtest.staircase_dashboard'}`;
   $('sidestate').textContent = S.red ? 'The market filter currently allows shorts only.' : DATA.green ? 'The market filter currently allows longs only.' : 'The market filter currently allows neither side.';
   $('pb-long').hidden = short; $('pb-long-note').hidden = short; $('pb-short').hidden = !short; $('pb-short-note').hidden = !short;
   $('c-stop-label').textContent = short ? 'High of day (stop)' : 'Low of day (stop)';
@@ -480,7 +480,9 @@ function rows() {
   const stopPct = P ? P.median_risk : 0.03;
   const min = +$('min').value, status = $('status').value, find = $('find').value.trim().toLowerCase();
   const list = ROWS.filter(r => find ? r.ticker.toLowerCase().startsWith(find) || r.name.toLowerCase().includes(find)
-                                          : r.passed >= min && (!status || r.status === status));
+                                          : r.passed >= min && (!status || (status === 'hit' ? r.today && r.today.hit : r.status === status)));
+  const ncol = DATA.live ? 16 : 15;
+  const now = r => !DATA.live ? '' : `<td class="num">${r.today ? `${fmt(r.today.last)}${r.today.hit ? ` <span class="score s-hi" title="Crossed the trigger today">${r.side === 'short' ? 'below' : 'above'}</span>` : ''}` : '–'}</td>`;
   $('shown').textContent = `showing ${list.length} of ${ROWS.length}`;
   $('rows').innerHTML = list.length ? list.map(r => {
     const shares = Math.floor(Math.min(risk / (stopPct * r.trigger), DATA.max_position * account / r.trigger));
@@ -491,7 +493,7 @@ function rows() {
       <td class="name" title="${esc(r.name)}">${esc(r.name)}</td>
       <td>${esc(r.status)}</td>
       <td class="num">${fmt(r.close)}</td><td class="num">${fmt(r.trigger)}</td>
-      <td class="num">${(r.to_trigger * 100).toFixed(1)}%</td><td class="num">${fmt(r.undercut)}</td>
+      <td class="num">${(r.to_trigger * 100).toFixed(1)}%</td>${now(r)}<td class="num">${fmt(r.undercut)}</td>
       <td class="num">${r.base_days}</td><td class="num">${(r.adr * 100).toFixed(1)}%</td>
       <td class="num">${r.rs === null ? '–' : Math.round(r.rs * 100)}</td><td class="num">${r.market_cap === null ? '–' : compact(r.market_cap)}</td>
       <td class="num">${r.avg_volume.toLocaleString()}</td>
@@ -499,14 +501,14 @@ function rows() {
     if (open !== r.ticker) return row;
     const parts = r.checks.map(([l, ok]) => `<div><span>${esc(l)}</span><span class="${ok ? 'yes' : 'no-mark'}">${ok ? 'Yes' : 'No'}</span></div>`).join('');
     const isWarning = n => n.startsWith('NO NEW TRADE') || n.startsWith('Not a setup') || n.startsWith('Possible takeover');
-    return row + `<tr class="detail"><td colspan="15"><div class="detail-wrap">
+    return row + `<tr class="detail"><td colspan="${ncol}"><div class="detail-wrap">
       ${pins.includes(r.ticker) ? '<p class="muted" style="margin:0">This chart is also in My charts.</p>' : chartHtml(r.ticker)}
       <div class="detail-grid">
       <ol>${r.notes.map(n => `<li class="${isWarning(n) ? 'no' : ''}">${esc(n)}</li>`).join('')}</ol>
       <div class="parts"><div class="muted"><span>Base rules</span><span>Met</span></div>${parts}
         <div style="margin-top:6px;border-top:1px solid var(--line);padding-top:6px"><span>Rules met</span><b>${r.passed}/${r.total}</b></div>
       </div></div></div></td></tr>`;
-  }).join('') : `<tr><td colspan="15" class="muted">${find ? `Nothing matches "${esc(find)}". It may not have passed the screener with at least ${$('min').min} base rules today.` : 'No setups match the filters. Lower the minimum rules met to see more.'}</td></tr>`;
+  }).join('') : `<tr><td colspan="${ncol}" class="muted">${find ? `Nothing matches "${esc(find)}". It may not have passed the screener with at least ${$('min').min} base rules today.` : 'No setups match the filters. Lower the minimum rules met to see more.'}</td></tr>`;
   document.querySelectorAll('tr.row').forEach(r => r.onclick = () => { open = open === r.dataset.key ? null : r.dataset.key; rows(); });
   document.querySelectorAll('[data-pin]').forEach(c => {
     c.onclick = e => e.stopPropagation();
@@ -668,7 +670,11 @@ document.querySelectorAll('[data-side]').forEach(b => b.onclick = () => setSide(
 $('min').oninput = () => { $('minv').textContent = $('min').value; rows(); };
 $('status').onchange = rows;
 $('find').oninput = rows;
-$('asof').textContent = `— as of the ${DATA.as_of} close`;
+$('asof').textContent = `— as of the ${DATA.as_of} close${DATA.live ? `, prices at ${DATA.live.time}` : ''}`;
+if (DATA.live) {
+  $('th-now').hidden = false;
+  $('status').insertAdjacentHTML('beforeend', '<option value="hit">Crossed trigger today</option>');
+}
 let resizeTimer;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { drawCharts(); drawPlots(); }, 150); });
 setSide(load('staircase_side', 'long'));
