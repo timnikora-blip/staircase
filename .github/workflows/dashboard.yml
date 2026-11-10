@@ -1,11 +1,13 @@
 # Builds the Staircase dashboard on GitHub's servers and publishes it to GitHub Pages.
-# Times are UTC. GitHub can start scheduled runs 5–20 minutes late, and when it's busy it may skip one.
+# Times are UTC. GitHub can start scheduled runs late (often 10–30 minutes, sometimes more), and when it's busy it may skip one.
 name: Dashboard
 
 on:
   schedule:
     - cron: "30 1 * * 2-6"     # evening after the close (8:30 pm New York in winter, 9:30 pm in summer)
     - cron: "30 12 * * 1-5"    # before the open, when Yahoo has filled in the previous session
+    - cron: "40 14 * * 1-5"    # after the open: 9:40 am New York in winter (adds today's prices so far)
+    - cron: "40 13 * * 1-5"    # after the open: 9:40 am New York in summer
   workflow_dispatch:             # "Run workflow" button for a manual refresh
 
 permissions:
@@ -25,16 +27,34 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - id: gate
+        name: Check the season
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          # The after-open run is listed twice so it stays at 9:40 New York through daylight saving; skip the copy for the other season.
+          off=$(TZ=America/New_York date +%z)
+          run=true
+          if [ "$SCHEDULE" = "40 14 * * 1-5" ] && [ "$off" != "-0500" ]; then run=false; fi
+          if [ "$SCHEDULE" = "40 13 * * 1-5" ] && [ "$off" != "-0400" ]; then run=false; fi
+          echo "New York offset $off, run=$run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt
-      - name: Scan the whole US market
+      - if: steps.gate.outputs.run == 'true'
+        run: pip install -r requirements.txt
+      - if: steps.gate.outputs.run == 'true'
+        name: Scan the whole US market
         run: python -m backtest.staircase_dashboard --cloud --no-open --out site/index.html
-      - uses: actions/upload-pages-artifact@v3
+      - if: steps.gate.outputs.run == 'true'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: site
-      - id: deploy
+      - if: steps.gate.outputs.run == 'true'
+        id: deploy
         uses: actions/deploy-pages@v4
