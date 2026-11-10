@@ -5,7 +5,7 @@ A watchlist and playbook for the staircase breakout (long) and breakdown (short)
 **Read this first:** neither side showed a proven edge in testing. The long side lost to random entries in the same stocks, and the short side averaged −0.23R per trade over 10 years. Use the page for paper trading, not as a reason to risk money. Details are on the page and in `results/staircase/`.
 
 ## On your phone (GitHub, runs in the cloud)
-The workflow in `.github/workflows/dashboard.yml` builds the page on GitHub's servers, even with your PC off. It runs twice each weekday: in the evening after the close, and before the open, by which time Yahoo has filled in the previous session.
+The workflow in `.github/workflows/dashboard.yml` builds the page on GitHub's servers, even with your PC off. It runs three times each weekday: in the evening after the close; before the open, by which time Yahoo has filled in the previous session; and at about 9:40 am New York, which adds today's prices so far and flags setups that have already crossed their trigger. GitHub often starts scheduled runs late, and a run takes about 7 minutes.
 
 **One-time setup (about 10 minutes, all in a browser):**
 1. Sign in at github.com, with the same account as the Gerchik `levels` repository if you like.
